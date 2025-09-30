@@ -174,6 +174,11 @@ def build_context_series(ods_id, comp_id, level, macro, muni):
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 app.title = "Painel ODS – Pará (Claro)"
 
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Expor o WSGI para produção (Gunicorn vai importar "app:server")
+server = app.server
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 app.layout = dbc.Container([
     # State
     dcc.Store(id="st-ods",        data=None),
@@ -441,6 +446,6 @@ def choose_ods(_):
         return trig.get("ods")
     return no_update
 
-# run
+# run (dev local)
 if __name__ == "__main__":
     app.run_server(host="0.0.0.0", port=8050, debug=True)

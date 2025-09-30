@@ -1,27 +1,10 @@
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-*.egg-info/
-.pytest_cache/
-.cache/
-
-# venv
 .venv/
-venv/
-env/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Dados grandes (mantenha só o JSON final)
 data/*.xlsx
 data/*.xls
 data/*.csv
 !data/dataset.json
+.DS_Store
+.vscode/
+.idea/
