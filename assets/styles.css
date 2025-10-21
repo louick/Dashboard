@@ -35,7 +35,6 @@
   --shadow:0 8px 24px rgba(2, 132, 199, .06);
 }
 
-/* Página */
 .page-light { padding-bottom: 24px; }
 html, body {
   background: var(--bg); color: var(--text);
@@ -49,8 +48,8 @@ html, body {
 /* Tipografia geral */
 .h2-title{font-size:18px;font-weight:700;margin:12px 0}
 .tile-sub{color:var(--muted);font-size:12px;margin:6px 0}
-.tile-title{font-size:15px;font-weight:700}
-.tile-number{font-size:22px;font-weight:800}
+.tile-title{font-size:15px;font-weight:800}
+.tile-number{font-size:22px;font-weight:900}
 
 /* Breadcrumb */
 .crumb-item{color:#0b1220;font-weight:600}
@@ -117,7 +116,7 @@ html, body {
 }
 .ods-text{ display:flex; flex-direction:column; gap:2px; min-width:0 }
 .ods-small{ font-size:12px; color:var(--muted); font-weight:700; letter-spacing:.2px }
-.ods-big{ font-size:16px; font-weight:800; color:var(--text) }
+.ods-big{ font-size:16px; font-weight:800; color: var(--text) }
 .ods-idx{ font-size:20px; font-weight:900; color:#111827 }
 
 /* Grid */
@@ -126,3 +125,49 @@ html, body {
 /* Plotly em fundo claro */
 .js-plotly-plot .plotly .bg,
 .js-plotly-plot .plotly .cartesianlayer .subplot { background: #ffffff !important; }
+
+/* ===== Toolbar Focus (voltar) ===== */
+.focus-toolbar{
+  display:none; align-items:center; margin: 6px 0 0 0;
+}
+.btn-back{
+  border:1px solid var(--border);
+  background:#fff;
+}
+
+/* ===== Animações ===== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeInUp .35s ease both; }
+
+/* ===== Título clicável do componente ===== */
+.comp-title-row{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; margin-bottom: 4px; cursor:pointer;
+}
+.comp-title-row .tile-title{ font-size:15px; font-weight:800; }
+.comp-title-row .chev{
+  font-size:12px; opacity:.7; transform: translateY(-1px);
+}
+
+/* ===== Corpo colapsável ===== */
+.comp-collapse-body{ padding: 6px 0 4px 0; }
+.comp-desc{
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.35rem;
+  white-space: pre-line;
+}
+.comp-source-row{
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.comp-source{ font-weight: 600; }
+
+/* reforço no grid de componentes */
+@media (min-width: 992px){
+  .g-3>.col-lg-6 { padding-bottom: .5rem; }
+}
