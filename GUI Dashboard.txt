@@ -1,0 +1,143 @@
+Painel ODS – Pará (Claro)
+Guia simples para instalar e rodar localmente
+
+
+Arquivos que você deve ter dentro da pasta do projeto
+-----------------------------------------------------
+app.py
+build_dataset.py
+pasta assets/ods  (opcional – só para ícones)
+pasta data/
+  - Descritivos de Indicadores ODS 2023-2025.xlsx  (opcional, melhora títulos/descrições)
+  - dataset.json  (se não tiver, vamos gerar)
+
+Onde colocar: tudo dentro de uma única pasta. Exemplo: C:\meus-projetos\painel-ods  ou  /home/seu_usuario/painel-ods
+
+Instalação – escolha seu sistema
+--------------------------------
+
+1) Ubuntu ou macOS
+   - Abra o Terminal e entre na pasta do projeto (use cd):
+     cd /caminho/para/painel-ods
+
+   - Crie o ambiente virtual (venv) e ative:
+     python3 -m venv .venv
+     source .venv/bin/activate
+
+   - Atualize o pip e instale as dependências:
+     pip install --upgrade pip
+     pip install dash dash-bootstrap-components plotly pandas openpyxl
+
+2) Windows (PowerShell)
+   - Abra o PowerShell. Entre na pasta do projeto (use cd):
+     cd C:\caminho\para\painel-ods
+
+   - Crie o ambiente virtual (venv) e ative:
+     python -m venv .venv
+     .\.venv\Scripts\Activate.ps1
+
+   - Atualize o pip e instale as dependências:
+     python -m pip install --upgrade pip
+     pip install dash dash-bootstrap-components plotly pandas openpyxl
+
+Observação Windows: se o PowerShell bloquear a ativação, abre o PowerShell como Administrador e rode:
+Set-ExecutionPolicy RemoteSigned
+Depois feche e abra de novo, e ative o venv.
+
+Dados (planilha e dataset)
+--------------------------
+1) A planilha de descritivos (Descritivos de Indicadores ODS 2023-2025.xlsx) é opcional. Sem ela o painel funciona, só com menos textos explicativos.
+2) O arquivo data/dataset.json é necessário. Se não existir, gere com o comando abaixo.
+
+Como gerar o dataset.json (opcional, só se ele não existir)
+-----------------------------------------------------------
+Deixe o venv ativado e execute:
+python build_dataset.py
+
+O script cria/atualiza o arquivo data/dataset.json. Se ele depender de fontes externas, ajuste o caminho dentro do próprio build_dataset.py conforme sua realidade.
+
+Como iniciar o painel
+---------------------
+Deixe o venv ativado e rode:
+python app.py
+
+Abra o navegador em:
+http://localhost:8050
+
+Se quiser expor na rede local ou mudar a porta, abra o arquivo app.py e, no final, ajuste:
+app.run_server(host="0.0.0.0", port=8050, debug=True)
+
+Como usar (rapidamente)
+-----------------------
+1) No topo direito, existe um seletor “Ano de divulgação” (ex.: 2023, 2024, 2025).
+2) Clique no nível desejado: Estado, Macro-Região ou Município.
+3) Clique em um ODS para ver seus componentes, gráficos e comparativos.
+
+Regra do ano (muito importante)
+-------------------------------
+• O seletor sempre representa o ANO DE DIVULGAÇÃO (ex.: 2023).
+• Os gráficos mostram o ANO DE PESQUISA (referência), que é DOIS ANOS ANTES do ano de divulgação.
+  Exemplos: Seletor 2023 -> gráficos indicam pesquisa 2021
+            Seletor 2024 -> gráficos indicam pesquisa 2022
+            Seletor 2025 -> gráficos indicam pesquisa 2023
+• Isso é padrão de divulgação de dados do governo. A interface mostra claramente ambos: “pesquisa AAAA” e “divulgação BBBB”.
+
+Checklist para conferir se está certo
+-------------------------------------
+1) Mude o seletor para 2024.
+2) Em qualquer gráfico, olhe os rótulos: deve aparecer “pesquisa 2022” e, em algum lugar, “divulgação 2024”.
+3) No hover do gráfico, o ano mostrado é da pesquisa (referência).
+
+Problemas comuns e soluções rápidas
+-----------------------------------
+• Erro: ModuleNotFoundError: No module named 'dash'
+  Solução: Ative o venv e instale as dependências com pip install ... (veja a seção de instalação).
+
+• Erro: FileNotFoundError: Gere o dataset
+  Solução: Falta o arquivo data/dataset.json. Gere com python build_dataset.py ou copie um dataset.json válido para a pasta data.
+
+• Erro ao ler Excel (openpyxl) no Linux
+  Solução: pip install --upgrade openpyxl
+           Se insistir, instale compiladores/basics do sistema: sudo apt install build-essential
+
+• Porta 8050 já em uso
+  Solução: Edite no app.py a linha do run_server e troque port=8050 por outra, ex.: 8051.
+
+• Ícones ODS não aparecem
+  Solução: crie a pasta assets/ods e coloque 01.png até 17.png. Sem isso, o app usa um ícone genérico.
+
+Script opcional (Linux/macOS) para automatizar tudo
+---------------------------------------------------
+Se quiser, crie um arquivo chamado run.sh dentro da pasta do projeto com o conteúdo abaixo (exatamente como está):
+
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")"
+
+if [ ! -d ".venv" ]; then
+  python3 -m venv .venv
+fi
+
+source .venv/bin/activate
+
+pip install --upgrade pip
+pip install dash dash-bootstrap-components plotly pandas openpyxl
+
+mkdir -p data
+
+if [ ! -f "data/dataset.json" ]; then
+  echo "[i] Gerando data/dataset.json..."
+  python build_dataset.py || echo "[!] Não consegui gerar dataset.json; confira seus arquivos de entrada."
+fi
+
+python app.py
+
+Depois, dê permissão de execução e rode:
+chmod +x run.sh
+./run.sh
+
+Mensagem final para clientes
+----------------------------
+• A tela evidencia o ano de pesquisa (usado nos gráficos) e o ano de divulgação (seletor).
+• Navegação clara: Estado → Macro → Municípios; ODS → Componentes.
+• Para atualizar, basta substituir o data/dataset.json e (se desejar) a planilha de descritivos.
