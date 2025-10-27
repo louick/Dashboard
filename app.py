@@ -18,22 +18,23 @@ DESC_XLSX    = BASE_DIR / "data" / "Descritivos de Indicadores ODS 2023-2025.xls
 if not DATASET_PATH.exists():
     raise FileNotFoundError("Gere o dataset com: python scripts/build_dataset.py")
 
-dataset  = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
+dataset   = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
 df_values = pd.DataFrame(dataset.get("values", []))
 df_over   = pd.DataFrame(dataset.get("overview", []))
 
 # ==================== Anos (referência) e divulgação (+2) ====================
-def year_pub(y_ref: int) -> int: return int(y_ref) + 2
+def year_pub(y_ref: int) -> int: 
+    return int(y_ref) + 2
 
 if len(df_values):
     YEARS_REF_ALL = sorted({int(y) for y in df_values["year"].unique()})
 else:
     YEARS_REF_ALL = []
 
-TARGET_PUB   = {2023, 2024, 2025}
-YEARS_REF    = [y for y in YEARS_REF_ALL if year_pub(y) in TARGET_PUB]
-YEARS_PUB    = [year_pub(y) for y in YEARS_REF]
-PUB_TO_REF   = {year_pub(y): y for y in YEARS_REF}
+TARGET_PUB    = {2023, 2024, 2025}
+YEARS_REF     = [y for y in YEARS_REF_ALL if year_pub(y) in TARGET_PUB]
+YEARS_PUB     = [year_pub(y) for y in YEARS_REF]
+PUB_TO_REF    = {year_pub(y): y for y in YEARS_REF}
 YEAR_LAST_REF = YEARS_REF[-1] if YEARS_REF else None
 YEAR_LAST_PUB = year_pub(YEAR_LAST_REF) if YEAR_LAST_REF is not None else None
 
@@ -63,7 +64,7 @@ ODS_LABELS = {
     "ODS17": "ODS 17 — Parcerias e Meios de Implementação",
 }
 
-# Metadados já existentes no dataset.json
+# Metadados existentes no dataset.json
 COMP_META = {}
 for ods_id, od in dataset.get("ods", {}).items():
     for c in od.get("components", []):
@@ -137,18 +138,16 @@ def _norm_txt(s: str) -> str:
     s = re.sub(r"[^\w\s\-–—/]", "", s)
     return s
 
-# Mapas carregados do Excel
-# 1) por índice (recomendado): (ano_pub, ODSxx, idx) -> meta
+# 1) por índice: (ano_pub, ODSxx, idx) -> meta
 # 2) por título normalizado (fallback): (ano_pub, ODSxx, tnorm) -> meta
-DESC_BY_INDEX: dict[tuple,int] = {}
-DESC_BY_TITLE: dict[tuple,str] = {}
-DESC_BUCKETS: dict[tuple,list] = {}   # (ano, ODS) -> [(tnorm, meta)]
+DESC_BY_INDEX  = {}
+DESC_BY_TITLE  = {}
+DESC_BUCKETS   = {}  # (ano, ODS) -> [(tnorm, meta)]
 
 def load_descriptions_excel(path: Path):
     if not path.exists():
         print(f"[WARN] Descritivos não encontrado: {path}")
         return
-
     try:
         xls = pd.ExcelFile(path, engine="openpyxl")
     except Exception as ex:
@@ -157,7 +156,6 @@ def load_descriptions_excel(path: Path):
 
     total = 0
     for sheet in xls.sheet_names:
-        # detectar ano pela aba
         yr = None
         m = re.search(r"20(23|24|25)", sheet)
         if m: yr = int("20"+m.group(1))
@@ -171,8 +169,7 @@ def load_descriptions_excel(path: Path):
         try:
             df = pd.read_excel(path, sheet_name=sheet, engine="openpyxl")
         except Exception as ex:
-            print(f"[WARN] Não consegui ler aba '{sheet}': {ex}")
-            continue
+            print(f"[WARN] Não consegui ler aba '{sheet}': {ex}"); continue
 
         cols = {c: str(c).strip().lower() for c in df.columns}
         def col_like(*tokens):
@@ -183,13 +180,10 @@ def load_descriptions_excel(path: Path):
 
         col_ods  = col_like("ods") or col_like("objetivo")
         col_name = col_like("indicador") or col_like("nome") or col_like("título") or col_like("titulo")
-        # o texto grande costuma vir em "cálculo", "descrição", "definição"
         col_text = col_like("cálcul") or col_like("calculo") or col_like("descr") or col_like("defini")
         col_src  = col_like("fonte")
 
-        # contador por ODS dentro da aba
-        counters: dict[str,int] = {}
-
+        counters = {}
         for _, r in df.iterrows():
             ods_key = None
             if col_ods:
@@ -199,7 +193,6 @@ def load_descriptions_excel(path: Path):
             title = str(r.get(col_name) or "").strip()
             text  = str(r.get(col_text) or "").strip()
             src   = str(r.get(col_src)  or "").strip()
-
             if not (ods_key and title): 
                 continue
 
@@ -208,7 +201,6 @@ def load_descriptions_excel(path: Path):
             idx = counters[ods_key]
 
             meta = {"title": title, "desc": text, "source": src}
-
             DESC_BY_INDEX[(yr, ods_key, idx)] = meta
             tnorm = _norm_txt(title)
             DESC_BY_TITLE[(yr, ods_key, tnorm)] = meta
@@ -216,7 +208,7 @@ def load_descriptions_excel(path: Path):
             total += 1
 
     print(f"[INFO] Descritivos carregados: {total} linhas, "
-          f"{len(DESC_BY_INDEX)} chaves por índice, {len(DESC_BY_TITLE)} por título.")
+          f"{len(DESC_BY_INDEX)} por índice, {len(DESC_BY_TITLE)} por título.")
 
 load_descriptions_excel(DESC_XLSX)
 
@@ -224,50 +216,33 @@ def _tokens(s: str):
     return {t for t in re.findall(r"\w+", _norm_txt(s)) if len(t) >= 4}
 
 def _component_index_from(c: dict, fallback_position: int) -> int | None:
-    """
-    Tenta descobrir o número do indicador:
-    - prefixo do label: "[3] xxx"  -> 3
-    - code "01", "1.2", etc.       -> 1 (primeiro dígito)
-    - senão, usa a posição do loop (fallback_position)
-    """
     lbl = (c.get("label") or "").strip()
     m = re.match(r"\s*\[(\d+)\]", lbl)
-    if m: 
+    if m:
         try: return int(m.group(1))
         except: pass
-
     code = (c.get("code") or "").strip()
     if code:
         m2 = re.match(r"(\d+)", code)
         if m2:
             try: return int(m2.group(1))
             except: pass
-
     return fallback_position if fallback_position is not None else None
 
 def guess_desc_for_component(ods_id: str, comp_meta: dict, pub_year: int, ordinal: int):
-    """
-    1) usa correlação exata por (ano, ODS, índice)
-    2) cai para match exato por título normalizado
-    3) fuzzy pelos títulos do mesmo ODS/ano
-    4) fuzzy em todos os ODS do mesmo ano (último recurso)
-    """
-    # 1) por índice
+    # 1) índice (preferencial)
     idx = _component_index_from(comp_meta, ordinal)
     if idx is not None:
         meta = DESC_BY_INDEX.get((pub_year, ods_id, int(idx)))
         if meta: return meta
-
-    # 2) por título
+    # 2) match exato por título
     title = (comp_meta.get("label") or "").strip()
     if title:
-        # remover prefixos tipo "[1] "
         t2 = re.sub(r"^\s*\[[^\]]+\]\s*", "", title).strip()
         for t in (title, t2):
             k = (pub_year, ods_id, _norm_txt(t))
             if k in DESC_BY_TITLE: return DESC_BY_TITLE[k]
-
-    # 3) fuzzy dentro do mesmo ODS
+    # 3) fuzzy mesmo ODS
     bucket = DESC_BUCKETS.get((pub_year, ods_id), [])
     if bucket and title:
         want = _tokens(title)
@@ -278,8 +253,7 @@ def guess_desc_for_component(ods_id: str, comp_meta: dict, pub_year: int, ordina
             if score > best_score:
                 best, best_score = meta, score
         if best_score > 0: return best
-
-    # 4) fuzzy no ano todo
+    # 4) fuzzy ano todo
     if title:
         want = _tokens(title)
         best, best_score = None, 0
@@ -292,6 +266,18 @@ def guess_desc_for_component(ods_id: str, comp_meta: dict, pub_year: int, ordina
                     best, best_score = meta, score
         if best_score > 0: return best
     return None
+
+# ==== título particularizado dos gráficos ====
+def display_title_for_chart(desc_pkg: dict | None, comp_meta: dict, pos: int) -> str:
+    excel_title = (desc_pkg or {}).get("title", "") if desc_pkg else ""
+    if excel_title:
+        return excel_title.strip()
+    base = (comp_meta.get("label") or "Indicador").strip()
+    base = re.sub(r"^\s*\[[^\]]+\]\s*", "", base)
+    code = (comp_meta.get("code") or "").strip()
+    if code and not re.match(r"^\s*\[", base):
+        return f"[{code}] {base}"
+    return base
 
 # ==================== App ====================
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
@@ -330,14 +316,14 @@ app.layout = dbc.Container([
         dbc.Col(dcc.RadioItems(
             id="rd-level",
             options=[{"label":"Estado","value":"estado"},
-                     {"label":"Macro-Região","value":"macro"},
+                     {"label":"Região de Integração","value":"macro"},
                      {"label":"Município","value":"municipio"}],
             value="estado", inline=True,
             inputStyle={"marginRight":"6px","marginLeft":"12px"}
         ), md=6),
         dbc.Col(dcc.Dropdown(id="dd-macro", className="themed-dd",
                              options=[{"label": m, "value": m} for m in MACROS],
-                             placeholder="Selecione a Macro-Região",
+                             placeholder="Selecione a Região de Integração",
                              style={"display":"none"}), md=3),
         dbc.Col(dcc.Dropdown(id="dd-muni", className="themed-dd",
                              options=[], placeholder="Selecione o Município",
@@ -439,6 +425,7 @@ def render_ods_grid(geo, year_ref):
 
     header = dbc.Row([dbc.Col(html.Div([
         html.Span(f"{geo}", className="crumb-item"),
+        html.Span(f" • {year_ref}", className="crumb-sep"),  # ano de referência na lista também
         html.Span(f" • divulgação {year_pub(year_ref)}", className="crumb-sep"),
     ]))])
 
@@ -467,6 +454,7 @@ def render_ods_focus(geo, year_ref, level, macro, muni, ods_selected):
         html.Span(f"{geo}", className="crumb-item"),
         html.Span(" • ", className="crumb-sep"),
         html.Span(ods_title, className="crumb-item"),
+        html.Span(f" • {year_ref}", className="crumb-sep"),  # >>> ANO DE REFERÊNCIA
         html.Span(f" • divulgação {year_pub(year_ref)}", className="crumb-sep"),
     ]))])
 
@@ -477,34 +465,35 @@ def render_ods_focus(geo, year_ref, level, macro, muni, ods_selected):
     pub_year = year_pub(year_ref)
 
     for pos, c in enumerate(comps, start=1):
-        code = c.get("code") or ""
-        base_title = (c.get("label") or "Indicador").strip()
-        nice_title = (f"[{code}] " if (code and not re.match(r"^\s*\[\d+\]", base_title)) else "") + base_title
-
-        # -------------- Descritivo --------------
-        desc_pkg = guess_desc_for_component(ods_selected, c, pub_year, ordinal=pos)
-        short_desc = ((desc_pkg or {}).get("desc") or (c.get("desc") or "")).strip()
+        # ---------------- Descritivo (planilha) ----------------
+        desc_pkg   = guess_desc_for_component(ods_selected, c, pub_year, ordinal=pos)
+        long_title = display_title_for_chart(desc_pkg, c, pos)  # título particularizado
+        short_desc = ((desc_pkg or {}).get("desc")   or (c.get("desc")   or "")).strip()
         source_txt = ((desc_pkg or {}).get("source") or (c.get("source") or "")).strip()
         unit_txt   = f" • Unidade: {c['unit']}" if c.get("unit") else ""
 
-        # -------------- Séries --------------
+        nice_title = long_title  # usamos o mesmo título no topo do card
+
+        # ---------------- Séries (linhas) em ANO DE REFERÊNCIA ----------------
         context = build_context_series(ods_selected, c["id"], level, macro, muni)
         colors  = {"Município": "#C8A530", "Regional": "#D12D4A", "Pará": "#1976D2"}
 
         fig = go.Figure(); max_y = 0.0
         for name, serie in context:
-            xs_pub = [year_pub(p["year_ref"]) for p in serie]
+            xs_ref = [p["year_ref"] for p in serie]  # <<< REFERÊNCIA NO EIXO
             ys     = [p["value"] for p in serie]
             max_y  = max(max_y, max([v for v in ys if v is not None] or [0]))
             fig.add_trace(go.Scatter(
-                x=xs_pub, y=ys, mode="lines+markers", name=name,
+                x=xs_ref, y=ys, mode="lines+markers", name=name,
                 line=dict(width=2, color=colors.get(name, "#1976D2")),
                 marker=dict(size=6, color=colors.get(name, "#1976D2"))
             ))
+
         fig.update_layout(
-            margin=dict(l=16,r=12,t=18,b=30), height=260, template="plotly_white",
+            title=long_title, title_x=0.02, title_font=dict(size=13, family="Inter,Arial"),
+            margin=dict(l=16,r=12,t=36,b=30), height=260, template="plotly_white",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, font=dict(size=12)),
-            xaxis=dict(tickmode="array", tickvals=YEARS_PUB, ticktext=[str(p) for p in YEARS_PUB], title="Ano (divulgação)"),
+            xaxis=dict(tickmode="array", tickvals=YEARS_REF, ticktext=[str(r) for r in YEARS_REF], title="Ano"),
             yaxis=dict(range=[0, (max_y*1.10 if max_y>0 else 1)], title="")
         )
 
@@ -520,7 +509,11 @@ def render_ods_focus(geo, year_ref, level, macro, muni, ods_selected):
                             html.Span("▼", className="chev")
                         ], className="comp-title-row", id={"type":"comp-title", "cid": cid}, n_clicks=0),
 
-                        html.Div(html.Span(fmt_num(get_point(ods_selected, c["id"], geo, year_ref)), className="tile-number")),
+                        # valor + badge do ano de referência
+                        html.Div([
+                            html.Span(fmt_num(get_point(ods_selected, c["id"], geo, year_ref)), className="tile-number"),
+                            html.Span(f" • {year_ref}", className="tile-sub", style={"marginLeft": "6px"})
+                        ]),
 
                         dbc.Collapse(
                             html.Div([
@@ -540,10 +533,13 @@ def render_ods_focus(geo, year_ref, level, macro, muni, ods_selected):
             )
         )
 
-    # ---- Blocos de barras comparativas (mantidos)
+    # ---- Barras comparativas ----
     bars = []
     if level=="estado":
-        for c in comps:
+        for pos, c in enumerate(comps, start=1):
+            desc_pkg   = guess_desc_for_component(ods_selected, c, pub_year, ordinal=pos)
+            long_title = display_title_for_chart(desc_pkg, c, pos)
+
             rows=[]
             for m in MACROS:
                 v = get_point(ods_selected, c["id"], m, year_ref)
@@ -552,17 +548,22 @@ def render_ods_focus(geo, year_ref, level, macro, muni, ods_selected):
                 figb = go.Figure()
                 figb.add_trace(go.Bar(x=[r["geo"] for r in rows], y=[r["value"] for r in rows]))
                 max_bar = max([r["value"] for r in rows] or [0])
-                figb.update_layout(margin=dict(l=10,r=10,t=30,b=80), height=320, xaxis=dict(tickangle=-30),
-                                   template="plotly_white",
-                                   title=f"Ano de divulgação {year_pub(year_ref)}")
-                figb.update_yaxes(range=[0, max_bar*1.10 if max_bar>0 else 1])
+                figb.update_layout(
+                    title=f"Comparação por Macro-Região — {long_title}",
+                    title_x=0.02, title_font=dict(size=13, family="Inter,Arial"),
+                    margin=dict(l=10,r=10,t=42,b=80), height=320, xaxis=dict(tickangle=-30),
+                    template="plotly_white"
+                )
+                figb.update_yaxes(range=[0, max_bar*1.10 if max_bar>0 else 1], title="")
                 bars.append(dbc.Col(dbc.Card(dbc.CardBody([
-                    html.Div(f"Comparação por Macro-Região • {c.get('label','')}", className="tile-sub"),
                     dcc.Graph(figure=figb, config={"displayModeBar": False})
                 ]), className="card-tile"), md=12, lg=6))
     elif level=="macro" and macro:
         muni_ids = [g["id"] for g in dataset.get("geos", []) if g.get("type")=="municipality" and (parent_macro_of(g["id"])==macro)]
-        for c in comps:
+        for pos, c in enumerate(comps, start=1):
+            desc_pkg   = guess_desc_for_component(ods_selected, c, pub_year, ordinal=pos)
+            long_title = display_title_for_chart(desc_pkg, c, pos)
+
             rows=[]
             for gid in muni_ids:
                 v = get_point(ods_selected, c["id"], gid, year_ref)
@@ -572,12 +573,14 @@ def render_ods_focus(geo, year_ref, level, macro, muni, ods_selected):
                 figb = go.Figure()
                 figb.add_trace(go.Bar(x=[r["geo"] for r in rows], y=[r["value"] for r in rows]))
                 max_bar = max([r["value"] for r in rows] or [0])
-                figb.update_layout(margin=dict(l=10,r=10,t=30,b=120), height=380, xaxis=dict(tickangle=-60),
-                                   template="plotly_white",
-                                   title=f"Ano de divulgação {year_pub(year_ref)}")
-                figb.update_yaxes(range=[0, max_bar*1.10 if max_bar>0 else 1])
+                figb.update_layout(
+                    title=f"Top municípios — {long_title}",
+                    title_x=0.02, title_font=dict(size=13, family="Inter,Arial"),
+                    margin=dict(l=10,r=10,t=42,b=120), height=380, xaxis=dict(tickangle=-60),
+                    template="plotly_white"
+                )
+                figb.update_yaxes(range=[0, max_bar*1.10 if max_bar>0 else 1], title="")
                 bars.append(dbc.Col(dbc.Card(dbc.CardBody([
-                    html.Div(f"Top municípios (ano) • {c.get('label','')}", className="tile-sub"),
                     dcc.Graph(figure=figb, config={"displayModeBar": False})
                 ]), className="card-tile"), md=12))
 
@@ -642,3 +645,4 @@ def build_context_series(ods_id, comp_id, level, macro, muni):
 
 if __name__ == "__main__":
     app.run_server(host="0.0.0.0", port=8050, debug=True)
+                                                
