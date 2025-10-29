@@ -1,6 +1,4 @@
-# railway.yml
 services:
   web:
-    buildCommand: ""
     startCommand: gunicorn -w 4 -b 0.0.0.0:$PORT app:server
     autoDeploy: true
